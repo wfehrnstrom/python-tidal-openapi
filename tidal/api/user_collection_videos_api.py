@@ -1,0 +1,1779 @@
+"""
+    TIDAL API
+
+    The TIDAL API is a [JSON:API](https://jsonapi.org/)-compliant web API exposing TIDAL's music catalogue, metadata, and user functionality. Guides, authorization documentation, and API key management live at [developer.tidal.com](https://developer.tidal.com).  All endpoints exchange `application/vnd.api+json` documents per the [JSON:API specification](https://jsonapi.org/format/): [resource objects](https://jsonapi.org/format/#document-resource-objects) with `attributes` and `relationships`, [compound documents](https://jsonapi.org/format/#document-compound-documents) via `include`, and standard [error objects](https://jsonapi.org/format/#error-objects).  ### Authentication and authorization  Every request requires an OAuth 2.0 access token in the `Authorization: Bearer` header. Tokens are issued at `https://auth.tidal.com/v1/oauth2/token` via the client-credentials flow (server-to-server) or the authorization-code + PKCE flow (user context; authorize at `https://login.tidal.com/authorize`). Each endpoint documents which flows it accepts, the access tier it requires, and the scopes that apply. Scopes protect private user data: fields you are not authorized to read are redacted from the response rather than causing an error, and resources you cannot access at all behave as if they do not exist. See the [authorization guide](https://developer.tidal.com/documentation/api-sdk/api-sdk-authorization) for details.  ### Common wire types and compatibility  Each property's schema is authoritative for its allowed values, format, requiredness, nullability, and constraints. A standard defines how a value is represented; an individual schema may support only a documented subset.  - **Enums** use `UPPER_CASE_UNDERSCORE`, except JSON:API resource types, which use plural camelCase names such as `playlistGenerationSchedules`. New values can be added to any enum at any time, so treat unknown values as forward-compatible rather than errors. - **Resource IDs** are opaque strings. A few resources document well-known IDs for permanent system singleton instances; compare those IDs by exact value. Never parse, construct, or infer meaning from any other `id`, even when its current representation resembles an integer, UUID, or another recognizable value. Other properties explicitly marked with OpenAPI `format: uuid` are UUIDs. - **Dates and times** use ISO 8601. Date-times use the OpenAPI `date-time` format (`2024-05-01T12:00:00Z`), dates use `YYYY-MM-DD`, and durations use values such as `PT3M5S`. - **Recurrence frequencies** use RFC 5545 `FREQ` names such as `DAILY`, `WEEKLY`, and `MONTHLY`. The property's enum lists the frequencies that field currently supports. - **Weekdays** use `MONDAY` through `SUNDAY`. - **Time zones** use IANA Time Zone Database identifiers such as `Europe/Stockholm`, not abbreviations or raw UTC offsets for recurring civil-time schedules. - **Country codes** use ISO 3166-1 alpha-2; the shared country type also accepts `WW` for worldwide. **Locales** use IETF BCP 47 language tags such as `en-US`. - **Currencies** use ISO 4217 codes. Monetary amounts are decimal strings; each field defines its sign and precision constraints. - **Colors** use three- or six-digit hexadecimal strings (`#RGB` or `#RRGGBB`). Resource links to external URLs use JSON:API link objects with an `href` member.  ### Resource identifiers  Where supported, `filter[subject]=tracks:123` matches a related resource by type and ID; `filter[subject.id]=123` and `filter[subject.type]=tracks` match either component. Where multiple identifiers are accepted, comma-separated values match any complete pair. When a member path names a to-many relationship, at least one related resource must match; filtering does not trim that relationship. On collection and to-many relationship reads, the reserved root `self` (`filter[self]=tracks:123`) filters primary data itself. Each endpoint lists its supported filters and types.  Where supported, `me` aliases the authenticated user's dedicated resource ID for the referenced resource type. It works in paths, resource-ID filters, compact identifiers (`type:me`), resource PATCH primary IDs and standalone relationship mutation identifiers, with the same meaning as the resolved ID. Reads using the alias are `no-store`.  ### Relationships and includes  [Relationships](https://jsonapi.org/format/#document-resource-object-relationships) are returned only on request: [`include`](https://jsonapi.org/format/#fetching-includes) selects linkage and related content, while `includeLinkage` selects authorized linkage only. A relationship that was not requested is absent from the response, not empty. The full set of relationships a resource supports is documented in its schema.  For INTERNAL clients on resource GET endpoints, `includeLinkage` accepts comma-separated direct relationship names, for example `includeLinkage=subject,viewer`. It does not load related resources or add an `included` section. Nested paths and type qualifiers are unsupported. To-many linkage retains its normal pagination and relationship `next` links. Selecting the same relationship with both parameters applies full include behavior and reads the relationship once.  Request related resources in one round trip with `?include=`, a comma-separated list of dot-separated relationship paths — e.g. `include=coverArt,artists.profileArt` on an album. A nested path automatically embeds its intermediate resources: `artists.profileArt` includes the artists as well as their profile art. Include paths are always relative to the request's root resource, also on relationship endpoints. Including a relationship never changes the primary data; the related resources are added to `included`.  Include paths are validated: a path that cannot be resolved against the resources' documented relationships is rejected with `400`. Include trees are also bounded in path depth (default 3 levels) and in the total number of distinct resources they name (default 10); individual endpoints may apply different limits. Both selectors share the include-node limit, counting overlapping roots once. A request exceeding either limit is rejected with `400`, with the effective limit stated in the error.  ### Filtering, sorting, pagination  - [`filter[<memberPath>]=value`](https://jsonapi.org/format/#fetching-filtering) filters primary data by equality. Each endpoint lists its available filters; most collections require at least one. - Where explicitly documented, `filter[<memberPath>][ne]=value` negates the complete equality predicate. When the member path names a to-many relationship, no related ID may match any supplied value; a known-empty relationship matches. Operators are separate from values. Supplied comparisons combine with AND. For a required filter with multiple supported comparisons, at least one must be supplied; the parameter descriptions identify these alternatives. Unsupported operators and groups return `400`. - Where documented, `filter[<path>][<operator>]=value` applies an endpoint-defined operator, such as `filter[self][matchesQuery]`. Its meaning is described per endpoint, and it combines with other filters by AND. - [`sort=<memberPath>`](https://jsonapi.org/format/#fetching-sorting) sorts ascending, `-<memberPath>` descending (`sort=-addedAt`). Filter and sort member paths are relative to primary data. - Parameters an endpoint cannot honor are rejected with `400`: a `filter[...]` parameter the endpoint does not document (the error lists the available filters), or `sort` on an endpoint that documents no sort values. - [Pagination](https://jsonapi.org/format/#fetching-pagination) is cursor-based: responses carry `links.self` and, while more pages exist, `links.next` with an opaque `page[cursor]`. Follow `next` until absent — there are no offset or total-page parameters. Collection sizes, when available, appear as `meta.total` and may be approximate.  ### Type qualifiers  Where a relationship can contain several resource types, a path segment may be prefixed with a concrete type to scope which type's member is accessed. A playlist's `items` are `tracks` or `videos`: `GET /playlists/{id}?include=items.tracks:albums` resolves `albums` only for the items that are tracks. Qualifiers scope member access — they never filter which resources appear in a relationship — and can be chained.  The same syntax applies to `filter` and `sort` member paths on endpoints that support it; where supported, the qualified member is listed among the endpoint's documented filters and sort values. The syntax follows JSON:API proposal [json-api#1695](https://github.com/json-api/json-api/issues/1695).  ### Mutations  - [Partial updates](https://jsonapi.org/format/#crud-updating-resource-attributes) distinguish three wire states for nullable attributes: omission leaves the current value unchanged, an explicit `null` clears it, and a concrete value updates it. - Every mutation accepts an [`Idempotency-Key`](https://www.ietf.org/archive/id/draft-ietf-httpapi-idempotency-key-header-07.html) header. Keys are scoped to the client and the authenticated user. Once the original request has completed, retrying it with the same key, method, path, query and payload within one hour replays its response; a retry while it is still processing is rejected with `409`, and the same key with a different method, path, query or payload with `422`. - After a successful write, your own subsequent reads reflect the change; other clients may observe it with a delay.  ### Revisions and concurrent editing  Where supported, `attributes.revision` identifies the resource's documented aggregate state; a separately versioned relationship collection uses document `meta.revision`. Revisions are nonnegative integers that increase when covered state changes. Compare them only within the same identity and scope, preserve the exact value, and never calculate the next revision. Related content, viewer projections and independent sources are not automatically covered. Domain fields named `version`, such as a music edition, are distinct; existing endpoints retain their documented contracts.  Guarded mutations accept the observed value as top-level `meta.expectedRevision`. Each operation declares its scope and whether the precondition is required. A mismatch returns `409`; missing required input returns `400`. Refresh and reconcile after a conflict, then submit a new operation with a new idempotency key. An identical retry with the original key replays a recorded success under the idempotency contract. These revisions are not HTTP ETags.  Returned revisions describe observed snapshots, not reservations for later writes. Background changes can advance them immediately after a successful response.  ### Media resource replacements - BETA Internal only  Media resources (`tracks`, `videos`, and `albums`) can become unavailable in a country when licensing rights change. By default, TIDAL API returns the resource identifiers originally stored in a collection. This keeps ordinary reads predictable and consistent.  If a stored media resource is unavailable for the effective country, TIDAL may identify a contextually applicable alternative that is available there. Replacement is best effort, so an alternative is not always available. Replacement never changes the stored collection.  TIDAL API provides two ways to work with replacements:  1. **Inspect the `replacement` relationship.** A media resource can expose its applicable alternative through the `replacement` relationship. Include this relationship when a client needs both the original and replacement identifiers or wants to decide whether to use the replacement.  2. **Apply replacements with `replaceMedia`.** Clients can use `replaceMedia` to substitute applicable replacements directly into selected relationship data. The parameter accepts relationship paths using the same syntax as `include`. Projection affects only the response and preserves relationship order and metadata. Each identifier includes `meta.replacement` describing whether it was `ORIGINAL`, `REPLACED`, or `NOT_REPLACED`.  For example, `GET /playlists/{id}?include=items&replaceMedia=items` applies replacements to media identifiers in the playlist's `items` relationship.  ### Compression  Responses are gzip-compressed when the request includes `Accept-Encoding: gzip` (bodies over 2 KB).  ### Deprecation  Deprecated endpoints, parameters, and fields are marked `deprecated` in this specification, with the replacement noted in their description. Deprecated functionality keeps working for at least six months after being marked, and is only removed once a replacement is generally available.
+
+    The version of the OpenAPI document: 1.10.254
+    Generated by OpenAPI Generator (https://openapi-generator.tech)
+
+    Do not edit the class manually.
+"""  # noqa: E501
+
+
+import warnings
+from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
+from typing import Any, Dict, List, Optional, Tuple, Union
+from typing_extensions import Annotated
+
+from pydantic import Field, StrictStr, field_validator
+from typing import List, Optional
+from typing_extensions import Annotated
+from tidal.models.mutation_response_document import MutationResponseDocument
+from tidal.models.user_collection_videos_items_add_multi_relationship_data_document import UserCollectionVideosItemsAddMultiRelationshipDataDocument
+from tidal.models.user_collection_videos_items_multi_relationship_data_document import UserCollectionVideosItemsMultiRelationshipDataDocument
+from tidal.models.user_collection_videos_items_relationship_add_operation_payload import UserCollectionVideosItemsRelationshipAddOperationPayload
+from tidal.models.user_collection_videos_items_relationship_remove_operation_payload import UserCollectionVideosItemsRelationshipRemoveOperationPayload
+from tidal.models.user_collection_videos_owners_multi_relationship_data_document import UserCollectionVideosOwnersMultiRelationshipDataDocument
+from tidal.models.user_collection_videos_single_resource_data_document import UserCollectionVideosSingleResourceDataDocument
+
+from tidal.api_client import ApiClient, RequestSerialized
+from tidal.api_response import ApiResponse
+from tidal.rest import RESTResponseType
+
+
+class UserCollectionVideosApi:
+    """NOTE: This class is auto generated by OpenAPI Generator
+    Ref: https://openapi-generator.tech
+
+    Do not edit the class manually.
+    """
+
+    def __init__(self, api_client=None) -> None:
+        if api_client is None:
+            api_client = ApiClient.get_default()
+        self.api_client = api_client
+
+
+    @validate_call
+    def user_collection_videos_id_get(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: items, owners")] = None,
+        include_linkage: Annotated[Optional[List[StrictStr]], Field(description="Comma-separated direct relationships to return as linkage only, without related content.")] = None,
+        locale: Annotated[Optional[StrictStr], Field(description="BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.")] = None,
+        replace_media: Annotated[Optional[StrictStr], Field(description="Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> UserCollectionVideosSingleResourceDataDocument:
+        """Get single userCollectionVideo.
+
+        Retrieves single userCollectionVideo by id.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param include: Include related resources. Available relationships: items, owners
+        :type include: List[str]
+        :param include_linkage: Comma-separated direct relationships to return as linkage only, without related content.
+        :type include_linkage: List[str]
+        :param locale: BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.
+        :type locale: str
+        :param replace_media: Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items
+        :type replace_media: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_get_serialize(
+            id=id,
+            include=include,
+            include_linkage=include_linkage,
+            locale=locale,
+            replace_media=replace_media,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosSingleResourceDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def user_collection_videos_id_get_with_http_info(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: items, owners")] = None,
+        include_linkage: Annotated[Optional[List[StrictStr]], Field(description="Comma-separated direct relationships to return as linkage only, without related content.")] = None,
+        locale: Annotated[Optional[StrictStr], Field(description="BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.")] = None,
+        replace_media: Annotated[Optional[StrictStr], Field(description="Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[UserCollectionVideosSingleResourceDataDocument]:
+        """Get single userCollectionVideo.
+
+        Retrieves single userCollectionVideo by id.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param include: Include related resources. Available relationships: items, owners
+        :type include: List[str]
+        :param include_linkage: Comma-separated direct relationships to return as linkage only, without related content.
+        :type include_linkage: List[str]
+        :param locale: BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.
+        :type locale: str
+        :param replace_media: Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items
+        :type replace_media: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_get_serialize(
+            id=id,
+            include=include,
+            include_linkage=include_linkage,
+            locale=locale,
+            replace_media=replace_media,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosSingleResourceDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def user_collection_videos_id_get_without_preload_content(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: items, owners")] = None,
+        include_linkage: Annotated[Optional[List[StrictStr]], Field(description="Comma-separated direct relationships to return as linkage only, without related content.")] = None,
+        locale: Annotated[Optional[StrictStr], Field(description="BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.")] = None,
+        replace_media: Annotated[Optional[StrictStr], Field(description="Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get single userCollectionVideo.
+
+        Retrieves single userCollectionVideo by id.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param include: Include related resources. Available relationships: items, owners
+        :type include: List[str]
+        :param include_linkage: Comma-separated direct relationships to return as linkage only, without related content.
+        :type include_linkage: List[str]
+        :param locale: BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.
+        :type locale: str
+        :param replace_media: Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items
+        :type replace_media: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_get_serialize(
+            id=id,
+            include=include,
+            include_linkage=include_linkage,
+            locale=locale,
+            replace_media=replace_media,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosSingleResourceDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _user_collection_videos_id_get_serialize(
+        self,
+        id,
+        include,
+        include_linkage,
+        locale,
+        replace_media,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'include': 'multi',
+            'includeLinkage': 'csv',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Any] = self.api_client._merge_headers(_headers)
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if id is not None:
+            _path_params['id'] = id
+        # process the query parameters
+        if include is not None:
+            
+            _query_params.append(('include', include))
+            
+        if include_linkage is not None:
+            
+            _query_params.append(('includeLinkage', include_linkage))
+            
+        if locale is not None:
+            
+            _query_params.append(('locale', locale))
+            
+        if replace_media is not None:
+            
+            _query_params.append(('replaceMedia', replace_media))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if not any(key.lower() == 'accept' for key in _header_params):
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/vnd.api+json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'Authorization_Code_PKCE'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/userCollectionVideos/{id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_delete(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        idempotency_key: Annotated[Optional[Annotated[str, Field(strict=True, max_length=128)]], Field(description="Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.")] = None,
+        user_collection_videos_items_relationship_remove_operation_payload: Optional[UserCollectionVideosItemsRelationshipRemoveOperationPayload] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> MutationResponseDocument:
+        """Delete from items relationship (\"to-many\").
+
+        Deletes item(s) from items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param idempotency_key: Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.
+        :type idempotency_key: str
+        :param user_collection_videos_items_relationship_remove_operation_payload:
+        :type user_collection_videos_items_relationship_remove_operation_payload: UserCollectionVideosItemsRelationshipRemoveOperationPayload
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_delete_serialize(
+            id=id,
+            idempotency_key=idempotency_key,
+            user_collection_videos_items_relationship_remove_operation_payload=user_collection_videos_items_relationship_remove_operation_payload,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "MutationResponseDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '409': "Idempotency409ResponseBody",
+            '415': "Default415ResponseBody",
+            '422': "Idempotency422ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_delete_with_http_info(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        idempotency_key: Annotated[Optional[Annotated[str, Field(strict=True, max_length=128)]], Field(description="Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.")] = None,
+        user_collection_videos_items_relationship_remove_operation_payload: Optional[UserCollectionVideosItemsRelationshipRemoveOperationPayload] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[MutationResponseDocument]:
+        """Delete from items relationship (\"to-many\").
+
+        Deletes item(s) from items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param idempotency_key: Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.
+        :type idempotency_key: str
+        :param user_collection_videos_items_relationship_remove_operation_payload:
+        :type user_collection_videos_items_relationship_remove_operation_payload: UserCollectionVideosItemsRelationshipRemoveOperationPayload
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_delete_serialize(
+            id=id,
+            idempotency_key=idempotency_key,
+            user_collection_videos_items_relationship_remove_operation_payload=user_collection_videos_items_relationship_remove_operation_payload,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "MutationResponseDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '409': "Idempotency409ResponseBody",
+            '415': "Default415ResponseBody",
+            '422': "Idempotency422ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_delete_without_preload_content(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        idempotency_key: Annotated[Optional[Annotated[str, Field(strict=True, max_length=128)]], Field(description="Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.")] = None,
+        user_collection_videos_items_relationship_remove_operation_payload: Optional[UserCollectionVideosItemsRelationshipRemoveOperationPayload] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Delete from items relationship (\"to-many\").
+
+        Deletes item(s) from items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param idempotency_key: Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.
+        :type idempotency_key: str
+        :param user_collection_videos_items_relationship_remove_operation_payload:
+        :type user_collection_videos_items_relationship_remove_operation_payload: UserCollectionVideosItemsRelationshipRemoveOperationPayload
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_delete_serialize(
+            id=id,
+            idempotency_key=idempotency_key,
+            user_collection_videos_items_relationship_remove_operation_payload=user_collection_videos_items_relationship_remove_operation_payload,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "MutationResponseDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '409': "Idempotency409ResponseBody",
+            '415': "Default415ResponseBody",
+            '422': "Idempotency422ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _user_collection_videos_id_relationships_items_delete_serialize(
+        self,
+        id,
+        idempotency_key,
+        user_collection_videos_items_relationship_remove_operation_payload,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Any] = self.api_client._merge_headers(_headers)
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if id is not None:
+            _path_params['id'] = id
+        # process the query parameters
+        # process the header parameters
+        if idempotency_key is not None:
+            self.api_client._set_header(_header_params, 'Idempotency-Key', idempotency_key)
+        # process the form parameters
+        # process the body parameter
+        if user_collection_videos_items_relationship_remove_operation_payload is not None:
+            _body_params = user_collection_videos_items_relationship_remove_operation_payload
+
+
+        # set the HTTP header `Accept`
+        if not any(key.lower() == 'accept' for key in _header_params):
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/vnd.api+json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            self.api_client._set_header(_header_params, 'Content-Type', _content_type)
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/vnd.api+json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                self.api_client._set_header(_header_params, 'Content-Type', _default_content_type)
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'Authorization_Code_PKCE'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/userCollectionVideos/{id}/relationships/items',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_get(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        filter_self_matches_query: Annotated[Optional[Annotated[str, Field(strict=True, max_length=100)]], Field(description="Filter videos by a free-text query matched against the video title and artist names. Internal clients only (e.g. `love`)")] = None,
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: items")] = None,
+        locale: Annotated[Optional[StrictStr], Field(description="BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.")] = None,
+        page_cursor: Annotated[Optional[StrictStr], Field(description="Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified")] = None,
+        replace_media: Annotated[Optional[StrictStr], Field(description="Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items")] = None,
+        sort: Annotated[Optional[List[StrictStr]], Field(description="Values prefixed with \"-\" are sorted descending; values without it are sorted ascending.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> UserCollectionVideosItemsMultiRelationshipDataDocument:
+        """Get items relationship (\"to-many\").
+
+        Retrieves items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param filter_self_matches_query: Filter videos by a free-text query matched against the video title and artist names. Internal clients only (e.g. `love`)
+        :type filter_self_matches_query: str
+        :param include: Include related resources. Available relationships: items
+        :type include: List[str]
+        :param locale: BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.
+        :type locale: str
+        :param page_cursor: Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified
+        :type page_cursor: str
+        :param replace_media: Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items
+        :type replace_media: str
+        :param sort: Values prefixed with \"-\" are sorted descending; values without it are sorted ascending.
+        :type sort: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_get_serialize(
+            id=id,
+            filter_self_matches_query=filter_self_matches_query,
+            include=include,
+            locale=locale,
+            page_cursor=page_cursor,
+            replace_media=replace_media,
+            sort=sort,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosItemsMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '403': "UserCollectionVideosItemsReadMultiDataRelationship403ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_get_with_http_info(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        filter_self_matches_query: Annotated[Optional[Annotated[str, Field(strict=True, max_length=100)]], Field(description="Filter videos by a free-text query matched against the video title and artist names. Internal clients only (e.g. `love`)")] = None,
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: items")] = None,
+        locale: Annotated[Optional[StrictStr], Field(description="BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.")] = None,
+        page_cursor: Annotated[Optional[StrictStr], Field(description="Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified")] = None,
+        replace_media: Annotated[Optional[StrictStr], Field(description="Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items")] = None,
+        sort: Annotated[Optional[List[StrictStr]], Field(description="Values prefixed with \"-\" are sorted descending; values without it are sorted ascending.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[UserCollectionVideosItemsMultiRelationshipDataDocument]:
+        """Get items relationship (\"to-many\").
+
+        Retrieves items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param filter_self_matches_query: Filter videos by a free-text query matched against the video title and artist names. Internal clients only (e.g. `love`)
+        :type filter_self_matches_query: str
+        :param include: Include related resources. Available relationships: items
+        :type include: List[str]
+        :param locale: BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.
+        :type locale: str
+        :param page_cursor: Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified
+        :type page_cursor: str
+        :param replace_media: Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items
+        :type replace_media: str
+        :param sort: Values prefixed with \"-\" are sorted descending; values without it are sorted ascending.
+        :type sort: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_get_serialize(
+            id=id,
+            filter_self_matches_query=filter_self_matches_query,
+            include=include,
+            locale=locale,
+            page_cursor=page_cursor,
+            replace_media=replace_media,
+            sort=sort,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosItemsMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '403': "UserCollectionVideosItemsReadMultiDataRelationship403ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_get_without_preload_content(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        filter_self_matches_query: Annotated[Optional[Annotated[str, Field(strict=True, max_length=100)]], Field(description="Filter videos by a free-text query matched against the video title and artist names. Internal clients only (e.g. `love`)")] = None,
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: items")] = None,
+        locale: Annotated[Optional[StrictStr], Field(description="BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.")] = None,
+        page_cursor: Annotated[Optional[StrictStr], Field(description="Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified")] = None,
+        replace_media: Annotated[Optional[StrictStr], Field(description="Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items")] = None,
+        sort: Annotated[Optional[List[StrictStr]], Field(description="Values prefixed with \"-\" are sorted descending; values without it are sorted ascending.")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get items relationship (\"to-many\").
+
+        Retrieves items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param filter_self_matches_query: Filter videos by a free-text query matched against the video title and artist names. Internal clients only (e.g. `love`)
+        :type filter_self_matches_query: str
+        :param include: Include related resources. Available relationships: items
+        :type include: List[str]
+        :param locale: BCP 47 locale (e.g., en-US, nb-NO, pt-BR). Defaults to en-US if not provided or unsupported.
+        :type locale: str
+        :param page_cursor: Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified
+        :type page_cursor: str
+        :param replace_media: Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: items
+        :type replace_media: str
+        :param sort: Values prefixed with \"-\" are sorted descending; values without it are sorted ascending.
+        :type sort: List[str]
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_get_serialize(
+            id=id,
+            filter_self_matches_query=filter_self_matches_query,
+            include=include,
+            locale=locale,
+            page_cursor=page_cursor,
+            replace_media=replace_media,
+            sort=sort,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosItemsMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '403': "UserCollectionVideosItemsReadMultiDataRelationship403ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _user_collection_videos_id_relationships_items_get_serialize(
+        self,
+        id,
+        filter_self_matches_query,
+        include,
+        locale,
+        page_cursor,
+        replace_media,
+        sort,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'include': 'multi',
+            'sort': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Any] = self.api_client._merge_headers(_headers)
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if id is not None:
+            _path_params['id'] = id
+        # process the query parameters
+        if filter_self_matches_query is not None:
+            
+            _query_params.append(('filter[self][matchesQuery]', filter_self_matches_query))
+            
+        if include is not None:
+            
+            _query_params.append(('include', include))
+            
+        if locale is not None:
+            
+            _query_params.append(('locale', locale))
+            
+        if page_cursor is not None:
+            
+            _query_params.append(('page[cursor]', page_cursor))
+            
+        if replace_media is not None:
+            
+            _query_params.append(('replaceMedia', replace_media))
+            
+        if sort is not None:
+            
+            _query_params.append(('sort', sort))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if not any(key.lower() == 'accept' for key in _header_params):
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/vnd.api+json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'Authorization_Code_PKCE'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/userCollectionVideos/{id}/relationships/items',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_post(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        idempotency_key: Annotated[Optional[Annotated[str, Field(strict=True, max_length=128)]], Field(description="Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.")] = None,
+        user_collection_videos_items_relationship_add_operation_payload: Optional[UserCollectionVideosItemsRelationshipAddOperationPayload] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> UserCollectionVideosItemsAddMultiRelationshipDataDocument:
+        """Add to items relationship (\"to-many\").
+
+        Adds item(s) to items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param idempotency_key: Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.
+        :type idempotency_key: str
+        :param user_collection_videos_items_relationship_add_operation_payload:
+        :type user_collection_videos_items_relationship_add_operation_payload: UserCollectionVideosItemsRelationshipAddOperationPayload
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_post_serialize(
+            id=id,
+            idempotency_key=idempotency_key,
+            user_collection_videos_items_relationship_add_operation_payload=user_collection_videos_items_relationship_add_operation_payload,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosItemsAddMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '409': "UserCollectionVideosItemsAddMultiDataRelationshipWithResponse409ResponseBody",
+            '415': "Default415ResponseBody",
+            '422': "Idempotency422ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_post_with_http_info(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        idempotency_key: Annotated[Optional[Annotated[str, Field(strict=True, max_length=128)]], Field(description="Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.")] = None,
+        user_collection_videos_items_relationship_add_operation_payload: Optional[UserCollectionVideosItemsRelationshipAddOperationPayload] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[UserCollectionVideosItemsAddMultiRelationshipDataDocument]:
+        """Add to items relationship (\"to-many\").
+
+        Adds item(s) to items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param idempotency_key: Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.
+        :type idempotency_key: str
+        :param user_collection_videos_items_relationship_add_operation_payload:
+        :type user_collection_videos_items_relationship_add_operation_payload: UserCollectionVideosItemsRelationshipAddOperationPayload
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_post_serialize(
+            id=id,
+            idempotency_key=idempotency_key,
+            user_collection_videos_items_relationship_add_operation_payload=user_collection_videos_items_relationship_add_operation_payload,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosItemsAddMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '409': "UserCollectionVideosItemsAddMultiDataRelationshipWithResponse409ResponseBody",
+            '415': "Default415ResponseBody",
+            '422': "Idempotency422ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_items_post_without_preload_content(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        idempotency_key: Annotated[Optional[Annotated[str, Field(strict=True, max_length=128)]], Field(description="Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.")] = None,
+        user_collection_videos_items_relationship_add_operation_payload: Optional[UserCollectionVideosItemsRelationshipAddOperationPayload] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Add to items relationship (\"to-many\").
+
+        Adds item(s) to items relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param idempotency_key: Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned.
+        :type idempotency_key: str
+        :param user_collection_videos_items_relationship_add_operation_payload:
+        :type user_collection_videos_items_relationship_add_operation_payload: UserCollectionVideosItemsRelationshipAddOperationPayload
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_items_post_serialize(
+            id=id,
+            idempotency_key=idempotency_key,
+            user_collection_videos_items_relationship_add_operation_payload=user_collection_videos_items_relationship_add_operation_payload,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosItemsAddMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '409': "UserCollectionVideosItemsAddMultiDataRelationshipWithResponse409ResponseBody",
+            '415': "Default415ResponseBody",
+            '422': "Idempotency422ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _user_collection_videos_id_relationships_items_post_serialize(
+        self,
+        id,
+        idempotency_key,
+        user_collection_videos_items_relationship_add_operation_payload,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Any] = self.api_client._merge_headers(_headers)
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if id is not None:
+            _path_params['id'] = id
+        # process the query parameters
+        # process the header parameters
+        if idempotency_key is not None:
+            self.api_client._set_header(_header_params, 'Idempotency-Key', idempotency_key)
+        # process the form parameters
+        # process the body parameter
+        if user_collection_videos_items_relationship_add_operation_payload is not None:
+            _body_params = user_collection_videos_items_relationship_add_operation_payload
+
+
+        # set the HTTP header `Accept`
+        if not any(key.lower() == 'accept' for key in _header_params):
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/vnd.api+json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            self.api_client._set_header(_header_params, 'Content-Type', _content_type)
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/vnd.api+json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                self.api_client._set_header(_header_params, 'Content-Type', _default_content_type)
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'Authorization_Code_PKCE'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/userCollectionVideos/{id}/relationships/items',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_owners_get(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: owners")] = None,
+        page_cursor: Annotated[Optional[StrictStr], Field(description="Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> UserCollectionVideosOwnersMultiRelationshipDataDocument:
+        """Get owners relationship (\"to-many\").
+
+        Retrieves owners relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param include: Include related resources. Available relationships: owners
+        :type include: List[str]
+        :param page_cursor: Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified
+        :type page_cursor: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_owners_get_serialize(
+            id=id,
+            include=include,
+            page_cursor=page_cursor,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosOwnersMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_owners_get_with_http_info(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: owners")] = None,
+        page_cursor: Annotated[Optional[StrictStr], Field(description="Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[UserCollectionVideosOwnersMultiRelationshipDataDocument]:
+        """Get owners relationship (\"to-many\").
+
+        Retrieves owners relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param include: Include related resources. Available relationships: owners
+        :type include: List[str]
+        :param page_cursor: Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified
+        :type page_cursor: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_owners_get_serialize(
+            id=id,
+            include=include,
+            page_cursor=page_cursor,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosOwnersMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def user_collection_videos_id_relationships_owners_get_without_preload_content(
+        self,
+        id: Annotated[StrictStr, Field(description="User collection videos id. Use `me` for the authenticated user's resource")],
+        include: Annotated[Optional[List[StrictStr]], Field(description="Include related resources. Available relationships: owners")] = None,
+        page_cursor: Annotated[Optional[StrictStr], Field(description="Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified")] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get owners relationship (\"to-many\").
+
+        Retrieves owners relationship.
+
+        :param id: User collection videos id. Use `me` for the authenticated user's resource (required)
+        :type id: str
+        :param include: Include related resources. Available relationships: owners
+        :type include: List[str]
+        :param page_cursor: Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified
+        :type page_cursor: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._user_collection_videos_id_relationships_owners_get_serialize(
+            id=id,
+            include=include,
+            page_cursor=page_cursor,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserCollectionVideosOwnersMultiRelationshipDataDocument",
+            '400': "Default400ResponseBody",
+            '404': "Default404ResponseBody",
+            '405': "Default405ResponseBody",
+            '406': "Default406ResponseBody",
+            '415': "Default415ResponseBody",
+            '429': "Default429ResponseBody",
+            '500': "Default500ResponseBody",
+            '503': "Default503ResponseBody",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _user_collection_videos_id_relationships_owners_get_serialize(
+        self,
+        id,
+        include,
+        page_cursor,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'include': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Any] = self.api_client._merge_headers(_headers)
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if id is not None:
+            _path_params['id'] = id
+        # process the query parameters
+        if include is not None:
+            
+            _query_params.append(('include', include))
+            
+        if page_cursor is not None:
+            
+            _query_params.append(('page[cursor]', page_cursor))
+            
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if not any(key.lower() == 'accept' for key in _header_params):
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/vnd.api+json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'Authorization_Code_PKCE'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/userCollectionVideos/{id}/relationships/owners',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+

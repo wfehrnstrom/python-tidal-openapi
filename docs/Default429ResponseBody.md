@@ -1,0 +1,29 @@
+# Default429ResponseBody
+
+
+## Properties
+
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**errors** | [**List[AtomicOperations429ResponseBodyErrorsInner]**](AtomicOperations429ResponseBodyErrorsInner.md) |  | 
+
+## Example
+
+```python
+from tidal.models.default429_response_body import Default429ResponseBody
+
+# TODO update the JSON string below
+json = "{}"
+# create an instance of Default429ResponseBody from a JSON string
+default429_response_body_instance = Default429ResponseBody.from_json(json)
+# print the JSON string representation of the object
+print(Default429ResponseBody.to_json())
+
+# convert the object into a dict
+default429_response_body_dict = default429_response_body_instance.to_dict()
+# create an instance of Default429ResponseBody from a dict
+default429_response_body_from_dict = Default429ResponseBody.from_dict(default429_response_body_dict)
+```
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
+
