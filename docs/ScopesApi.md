@@ -8,7 +8,7 @@ Method | HTTP request | Description
 
 
 # **scopes_get**
-> ScopesMultiResourceDataDocument scopes_get(filter_required_access_tier)
+> ScopesMultiResourceDataDocument scopes_get(filter_required_access_tier=filter_required_access_tier, filter_required_access_tier_satisfied_by=filter_required_access_tier_satisfied_by)
 
 Get multiple scopes.
 
@@ -41,11 +41,12 @@ configuration.access_token = os.environ["ACCESS_TOKEN"]
 with tidal.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = tidal.ScopesApi(api_client)
-    filter_required_access_tier = ['filter_required_access_tier_example'] # List[str] | Filters scopes by their `requiredAccessTier`. (e.g. `THIRD_PARTY`)
+    filter_required_access_tier = ['filter_required_access_tier_example'] # List[str] | Filters scopes by their required client access tier. (e.g. `THIRD_PARTY`) (optional)
+    filter_required_access_tier_satisfied_by = 'filter_required_access_tier_satisfied_by_example' # str | Selects scopes whose required access tier is satisfied by the client tier. (e.g. `PARTNER`) (optional)
 
     try:
         # Get multiple scopes.
-        api_response = api_instance.scopes_get(filter_required_access_tier)
+        api_response = api_instance.scopes_get(filter_required_access_tier=filter_required_access_tier, filter_required_access_tier_satisfied_by=filter_required_access_tier_satisfied_by)
         print("The response of ScopesApi->scopes_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -59,7 +60,8 @@ with tidal.ApiClient(configuration) as api_client:
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
- **filter_required_access_tier** | [**List[str]**](str.md)| Filters scopes by their &#x60;requiredAccessTier&#x60;. (e.g. &#x60;THIRD_PARTY&#x60;) | 
+ **filter_required_access_tier** | [**List[str]**](str.md)| Filters scopes by their required client access tier. (e.g. &#x60;THIRD_PARTY&#x60;) | [optional] 
+ **filter_required_access_tier_satisfied_by** | **str**| Selects scopes whose required access tier is satisfied by the client tier. (e.g. &#x60;PARTNER&#x60;) | [optional] 
 
 ### Return type
 

@@ -7,8 +7,8 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **code** | **str** | Opaque invite code embedded in the share link | 
 **created_at** | **datetime** | Datetime the invite was created (ISO 8601) | 
-**expires_at** | **datetime** | Time the underlying share expires; accepted grants remain valid | 
-**revoked** | **bool** | Whether the underlying share has been revoked | 
+**expires_at** | **datetime** | Time the invitation expires; accepted grants remain valid | 
+**revoked** | **bool** | Whether the invitation has been deleted | 
 
 ## Example
 

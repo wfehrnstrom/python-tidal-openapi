@@ -51,7 +51,7 @@ with tidal.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = tidal.SharesApi(api_client)
     filter_code = ['filter_code_example'] # List[str] | A share code (e.g. `xyz`) (optional)
-    filter_self_applies_to = 'filter_self_applies_to_example' # str | Album, track or folder owned by the caller. Selects undeleted, unexpired links on the resource or an ancestor album, and VOUCHER-enabled links on an ancestor folder. Exhausted links are included. Each link keeps its own sharedResources. Cannot be combined with other filters. Missing or non-owned resources and subjects without a live access node return no records. Ordered by expiry then share ID; at most 20 links per page. Also accepts `folders:me`. (optional)
+    filter_self_applies_to = 'filter_self_applies_to_example' # str | Album or track owned by the caller. Selects undeleted, unexpired links on the resource or its album. Exhausted links are included. Each link keeps its own sharedResources. Cannot be combined with other filters. Missing or non-owned resources and subjects without a live access node return no records. Ordered by expiry then share ID; at most 20 links per page. (optional)
     include = ['sharedResources'] # List[str] | Include related resources. Available relationships: owners, sharedResources (optional)
     include_linkage = ['include_linkage_example'] # List[str] | Comma-separated direct relationships to return as linkage only, without related content. (optional)
     page_cursor = 'page_cursor_example' # str | Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified (optional)
@@ -74,7 +74,7 @@ with tidal.ApiClient(configuration) as api_client:
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **filter_code** | [**List[str]**](str.md)| A share code (e.g. &#x60;xyz&#x60;) | [optional] 
- **filter_self_applies_to** | **str**| Album, track or folder owned by the caller. Selects undeleted, unexpired links on the resource or an ancestor album, and VOUCHER-enabled links on an ancestor folder. Exhausted links are included. Each link keeps its own sharedResources. Cannot be combined with other filters. Missing or non-owned resources and subjects without a live access node return no records. Ordered by expiry then share ID; at most 20 links per page. Also accepts &#x60;folders:me&#x60;. | [optional] 
+ **filter_self_applies_to** | **str**| Album or track owned by the caller. Selects undeleted, unexpired links on the resource or its album. Exhausted links are included. Each link keeps its own sharedResources. Cannot be combined with other filters. Missing or non-owned resources and subjects without a live access node return no records. Ordered by expiry then share ID; at most 20 links per page. | [optional] 
  **include** | [**List[str]**](str.md)| Include related resources. Available relationships: owners, sharedResources | [optional] 
  **include_linkage** | [**List[str]**](str.md)| Comma-separated direct relationships to return as linkage only, without related content. | [optional] 
  **page_cursor** | **str**| Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified | [optional] 
@@ -567,7 +567,7 @@ Name | Type | Description  | Notes
 
 Create single share.
 
-Creates a new share.
+Creates a new share. Deprecated for playlists: use `resourceGrantInvitations` instead.
 
 ### Example
 

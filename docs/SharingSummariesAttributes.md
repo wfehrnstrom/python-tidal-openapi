@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**shared** | **bool** | Whether a live grant to another user, an unexpired bearer grant or an applicable undeleted, unexpired share exists on the subject or an ancestor. Everyone grants do not count. Ancestor folder links require VOUCHER; exhausted links still count. | 
+**shared** | **bool** | Whether a live grant to another user, an unexpired bearer grant or an applicable undeleted, unexpired share exists on the subject or an ancestor. Everyone grants do not count; exhausted links still count. | 
 **shared_via_parent** | **bool** | The same sharing check restricted to ancestor folders and albums. Descendants never contribute. | 
 
 ## Example

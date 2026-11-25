@@ -6,6 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **items** | [**StudioHomeMerchTilesItemsMultiRelationshipDataDocument**](StudioHomeMerchTilesItemsMultiRelationshipDataDocument.md) |  | [optional] 
+**square_connection** | [**StudioHomeMerchTilesSquareConnectionSingleRelationshipDataDocument**](StudioHomeMerchTilesSquareConnectionSingleRelationshipDataDocument.md) |  | [optional] 
 
 ## Example
 

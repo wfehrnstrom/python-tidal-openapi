@@ -5,6 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**content_counts** | [**StudioHomeMusicTilesAttributesContentCounts**](StudioHomeMusicTilesAttributesContentCounts.md) |  | 
 **required_terms** | **List[str]** | Terms types the user must accept before using this tile; empty when none are missing. | 
 
 ## Example

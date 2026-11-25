@@ -5,7 +5,7 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**capabilities** | [**List[SquareConnectionsCapability]**](SquareConnectionsCapability.md) | Per-feature capability statuses for this Square connection. Every capability the connection offers is listed with a status carrying more than mere presence: SITES is GRANTED when the Square Online sites scopes are granted, or REQUIRES_REAUTH when the connection exists but its credential lacks them (the seller must reconnect Square via POST /squareConnections). Because a connection always offers the sites feature, SITES is always present here. Extensible — only SITES is defined today. Absent only when the connection has no sites state (e.g. no approved Square credential). Client rule: if SITES !&#x3D; GRANTED prompt reconnect; else if selectedSite.data is null show the site picker; else the selected site is shown to buyers. | [optional] 
+**capabilities** | [**List[SquareConnectionsCapability]**](SquareConnectionsCapability.md) | Per-feature capability statuses for this Square connection: GRANTED when the feature&#39;s Square scopes are granted, or REQUIRES_REAUTH when the seller must reconnect Square to use it. | [optional] 
 **created_at** | **datetime** | Timestamp when the connection was created | [optional] 
 **external_links** | [**List[ExternalLink]**](ExternalLink.md) | External links for Square connection | [optional] 
 **last_modified_at** | **datetime** | Timestamp when the connection was last modified | [optional] 

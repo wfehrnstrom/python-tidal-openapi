@@ -17,7 +17,7 @@ Method | HTTP request | Description
 
 
 # **folder_items_get**
-> FolderItemsMultiResourceDataDocument folder_items_get(filter_parent_id=filter_parent_id, filter_parent_is_root=filter_parent_is_root, filter_parent_owners_id=filter_parent_owners_id, filter_self_matches_query=filter_self_matches_query, filter_subject_albums_published=filter_subject_albums_published, filter_subject_owners_id=filter_subject_owners_id, filter_subject_owners_id_ne=filter_subject_owners_id_ne, include=include, include_linkage=include_linkage, page_cursor=page_cursor, replace_media=replace_media)
+> FolderItemsMultiResourceDataDocument folder_items_get(filter_parent_id=filter_parent_id, filter_parent_is_root=filter_parent_is_root, filter_parent_owners_id=filter_parent_owners_id, filter_self_matches_query=filter_self_matches_query, filter_subject_albums_published=filter_subject_albums_published, filter_subject_owners_id=filter_subject_owners_id, filter_subject_owners_id_ne=filter_subject_owners_id_ne, include=include, include_linkage=include_linkage, page_cursor=page_cursor, replace_media=replace_media, share_code=share_code)
 
 Get multiple folderItems.
 
@@ -61,10 +61,11 @@ with tidal.ApiClient(configuration) as api_client:
     include_linkage = ['include_linkage_example'] # List[str] | Comma-separated direct relationships to return as linkage only, without related content. (optional)
     page_cursor = 'page_cursor_example' # str | Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified (optional)
     replace_media = 'breadcrumb.children.subject' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: breadcrumb.children.subject (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
 
     try:
         # Get multiple folderItems.
-        api_response = api_instance.folder_items_get(filter_parent_id=filter_parent_id, filter_parent_is_root=filter_parent_is_root, filter_parent_owners_id=filter_parent_owners_id, filter_self_matches_query=filter_self_matches_query, filter_subject_albums_published=filter_subject_albums_published, filter_subject_owners_id=filter_subject_owners_id, filter_subject_owners_id_ne=filter_subject_owners_id_ne, include=include, include_linkage=include_linkage, page_cursor=page_cursor, replace_media=replace_media)
+        api_response = api_instance.folder_items_get(filter_parent_id=filter_parent_id, filter_parent_is_root=filter_parent_is_root, filter_parent_owners_id=filter_parent_owners_id, filter_self_matches_query=filter_self_matches_query, filter_subject_albums_published=filter_subject_albums_published, filter_subject_owners_id=filter_subject_owners_id, filter_subject_owners_id_ne=filter_subject_owners_id_ne, include=include, include_linkage=include_linkage, page_cursor=page_cursor, replace_media=replace_media, share_code=share_code)
         print("The response of FolderItemsApi->folder_items_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -89,6 +90,7 @@ Name | Type | Description  | Notes
  **include_linkage** | [**List[str]**](str.md)| Comma-separated direct relationships to return as linkage only, without related content. | [optional] 
  **page_cursor** | **str**| Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified | [optional] 
  **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: breadcrumb.children.subject | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
 
 ### Return type
 
@@ -120,7 +122,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **folder_items_id_delete**
-> MutationResponseDocument folder_items_id_delete(id, idempotency_key=idempotency_key)
+> MutationResponseDocument folder_items_id_delete(id, idempotency_key=idempotency_key, share_code=share_code)
 
 Delete single folderItem.
 
@@ -155,10 +157,11 @@ with tidal.ApiClient(configuration) as api_client:
     api_instance = tidal.FolderItemsApi(api_client)
     id = 'e3226624-355b-48f8-aa93-db42532caa66' # str | Folder item id
     idempotency_key = '79e1f37e-3e84-4c51-b5e2-7d9e1a2b3c4d' # str | Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned. (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
 
     try:
         # Delete single folderItem.
-        api_response = api_instance.folder_items_id_delete(id, idempotency_key=idempotency_key)
+        api_response = api_instance.folder_items_id_delete(id, idempotency_key=idempotency_key, share_code=share_code)
         print("The response of FolderItemsApi->folder_items_id_delete:\n")
         pprint(api_response)
     except Exception as e:
@@ -174,6 +177,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **id** | **str**| Folder item id | 
  **idempotency_key** | **str**| Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned. | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
 
 ### Return type
 
@@ -207,7 +211,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **folder_items_id_get**
-> FolderItemsSingleResourceDataDocument folder_items_id_get(id, include=include, include_linkage=include_linkage, replace_media=replace_media)
+> FolderItemsSingleResourceDataDocument folder_items_id_get(id, include=include, include_linkage=include_linkage, replace_media=replace_media, share_code=share_code)
 
 Get single folderItem.
 
@@ -216,6 +220,7 @@ Retrieves single folderItem by id.
 ### Example
 
 * OAuth Authentication (Authorization_Code_PKCE):
+* OAuth Authentication (Client_Credentials):
 
 ```python
 import tidal
@@ -236,6 +241,8 @@ configuration = tidal.Configuration(
 
 configuration.access_token = os.environ["ACCESS_TOKEN"]
 
+configuration.access_token = os.environ["ACCESS_TOKEN"]
+
 # Enter a context with an instance of the API client
 with tidal.ApiClient(configuration) as api_client:
     # Create an instance of the API class
@@ -244,10 +251,11 @@ with tidal.ApiClient(configuration) as api_client:
     include = ['breadcrumb.children.subject'] # List[str] | Include related resources. Available relationships: breadcrumb, owners, parent, sharingSummary, subject (optional)
     include_linkage = ['include_linkage_example'] # List[str] | Comma-separated direct relationships to return as linkage only, without related content. (optional)
     replace_media = 'breadcrumb.children.subject' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: breadcrumb.children.subject (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
 
     try:
         # Get single folderItem.
-        api_response = api_instance.folder_items_id_get(id, include=include, include_linkage=include_linkage, replace_media=replace_media)
+        api_response = api_instance.folder_items_id_get(id, include=include, include_linkage=include_linkage, replace_media=replace_media, share_code=share_code)
         print("The response of FolderItemsApi->folder_items_id_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -265,6 +273,7 @@ Name | Type | Description  | Notes
  **include** | [**List[str]**](str.md)| Include related resources. Available relationships: breadcrumb, owners, parent, sharingSummary, subject | [optional] 
  **include_linkage** | [**List[str]**](str.md)| Comma-separated direct relationships to return as linkage only, without related content. | [optional] 
  **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: breadcrumb.children.subject | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
 
 ### Return type
 
@@ -272,7 +281,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE)
+[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE), [Client_Credentials](../README.md#Client_Credentials)
 
 ### HTTP request headers
 
@@ -296,7 +305,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **folder_items_id_relationships_breadcrumb_get**
-> FolderItemsBreadcrumbMultiRelationshipDataDocument folder_items_id_relationships_breadcrumb_get(id, include=include, page_cursor=page_cursor, replace_media=replace_media)
+> FolderItemsBreadcrumbMultiRelationshipDataDocument folder_items_id_relationships_breadcrumb_get(id, include=include, page_cursor=page_cursor, replace_media=replace_media, share_code=share_code)
 
 Get breadcrumb relationship (\"to-many\").
 
@@ -333,10 +342,11 @@ with tidal.ApiClient(configuration) as api_client:
     include = ['breadcrumb.children.subject'] # List[str] | Include related resources. Available relationships: breadcrumb (optional)
     page_cursor = 'page_cursor_example' # str | Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified (optional)
     replace_media = 'breadcrumb.children.subject' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: breadcrumb.children.subject (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
 
     try:
         # Get breadcrumb relationship (\"to-many\").
-        api_response = api_instance.folder_items_id_relationships_breadcrumb_get(id, include=include, page_cursor=page_cursor, replace_media=replace_media)
+        api_response = api_instance.folder_items_id_relationships_breadcrumb_get(id, include=include, page_cursor=page_cursor, replace_media=replace_media, share_code=share_code)
         print("The response of FolderItemsApi->folder_items_id_relationships_breadcrumb_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -354,6 +364,7 @@ Name | Type | Description  | Notes
  **include** | [**List[str]**](str.md)| Include related resources. Available relationships: breadcrumb | [optional] 
  **page_cursor** | **str**| Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified | [optional] 
  **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: breadcrumb.children.subject | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
 
 ### Return type
 
@@ -385,7 +396,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **folder_items_id_relationships_owners_get**
-> FolderItemsOwnersMultiRelationshipDataDocument folder_items_id_relationships_owners_get(id, include=include, page_cursor=page_cursor)
+> FolderItemsOwnersMultiRelationshipDataDocument folder_items_id_relationships_owners_get(id, include=include, page_cursor=page_cursor, share_code=share_code)
 
 Get owners relationship (\"to-many\").
 
@@ -394,6 +405,7 @@ Retrieves owners relationship.
 ### Example
 
 * OAuth Authentication (Authorization_Code_PKCE):
+* OAuth Authentication (Client_Credentials):
 
 ```python
 import tidal
@@ -414,6 +426,8 @@ configuration = tidal.Configuration(
 
 configuration.access_token = os.environ["ACCESS_TOKEN"]
 
+configuration.access_token = os.environ["ACCESS_TOKEN"]
+
 # Enter a context with an instance of the API client
 with tidal.ApiClient(configuration) as api_client:
     # Create an instance of the API class
@@ -421,10 +435,11 @@ with tidal.ApiClient(configuration) as api_client:
     id = 'e3226624-355b-48f8-aa93-db42532caa66' # str | Folder item id
     include = ['owners'] # List[str] | Include related resources. Available relationships: owners (optional)
     page_cursor = 'page_cursor_example' # str | Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
 
     try:
         # Get owners relationship (\"to-many\").
-        api_response = api_instance.folder_items_id_relationships_owners_get(id, include=include, page_cursor=page_cursor)
+        api_response = api_instance.folder_items_id_relationships_owners_get(id, include=include, page_cursor=page_cursor, share_code=share_code)
         print("The response of FolderItemsApi->folder_items_id_relationships_owners_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -441,6 +456,7 @@ Name | Type | Description  | Notes
  **id** | **str**| Folder item id | 
  **include** | [**List[str]**](str.md)| Include related resources. Available relationships: owners | [optional] 
  **page_cursor** | **str**| Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
 
 ### Return type
 
@@ -448,7 +464,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE)
+[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE), [Client_Credentials](../README.md#Client_Credentials)
 
 ### HTTP request headers
 
@@ -472,7 +488,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **folder_items_id_relationships_parent_get**
-> FolderItemsParentSingleRelationshipDataDocument folder_items_id_relationships_parent_get(id, include=include, replace_media=replace_media)
+> FolderItemsParentSingleRelationshipDataDocument folder_items_id_relationships_parent_get(id, include=include, replace_media=replace_media, share_code=share_code)
 
 Get parent relationship (\"to-one\").
 
@@ -508,10 +524,11 @@ with tidal.ApiClient(configuration) as api_client:
     id = 'e3226624-355b-48f8-aa93-db42532caa66' # str | Folder item id
     include = ['parent.children.subject'] # List[str] | Include related resources. Available relationships: parent (optional)
     replace_media = 'parent.children.subject' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: parent.children.subject (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
 
     try:
         # Get parent relationship (\"to-one\").
-        api_response = api_instance.folder_items_id_relationships_parent_get(id, include=include, replace_media=replace_media)
+        api_response = api_instance.folder_items_id_relationships_parent_get(id, include=include, replace_media=replace_media, share_code=share_code)
         print("The response of FolderItemsApi->folder_items_id_relationships_parent_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -528,6 +545,7 @@ Name | Type | Description  | Notes
  **id** | **str**| Folder item id | 
  **include** | [**List[str]**](str.md)| Include related resources. Available relationships: parent | [optional] 
  **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: parent.children.subject | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
 
 ### Return type
 
@@ -559,7 +577,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **folder_items_id_relationships_parent_patch**
-> FolderItemsParentUpdateSingleRelationshipDataDocument folder_items_id_relationships_parent_patch(id, idempotency_key=idempotency_key, folder_items_parent_relationship_update_operation_payload=folder_items_parent_relationship_update_operation_payload)
+> FolderItemsParentUpdateSingleRelationshipDataDocument folder_items_id_relationships_parent_patch(id, idempotency_key=idempotency_key, share_code=share_code, folder_items_parent_relationship_update_operation_payload=folder_items_parent_relationship_update_operation_payload)
 
 Update parent relationship (\"to-one\").
 
@@ -595,11 +613,12 @@ with tidal.ApiClient(configuration) as api_client:
     api_instance = tidal.FolderItemsApi(api_client)
     id = 'e3226624-355b-48f8-aa93-db42532caa66' # str | Folder item id
     idempotency_key = '79e1f37e-3e84-4c51-b5e2-7d9e1a2b3c4d' # str | Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned. (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
     folder_items_parent_relationship_update_operation_payload = tidal.FolderItemsParentRelationshipUpdateOperationPayload() # FolderItemsParentRelationshipUpdateOperationPayload |  (optional)
 
     try:
         # Update parent relationship (\"to-one\").
-        api_response = api_instance.folder_items_id_relationships_parent_patch(id, idempotency_key=idempotency_key, folder_items_parent_relationship_update_operation_payload=folder_items_parent_relationship_update_operation_payload)
+        api_response = api_instance.folder_items_id_relationships_parent_patch(id, idempotency_key=idempotency_key, share_code=share_code, folder_items_parent_relationship_update_operation_payload=folder_items_parent_relationship_update_operation_payload)
         print("The response of FolderItemsApi->folder_items_id_relationships_parent_patch:\n")
         pprint(api_response)
     except Exception as e:
@@ -615,6 +634,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **id** | **str**| Folder item id | 
  **idempotency_key** | **str**| Unique idempotency key for safe retry of mutation requests. If the same caller repeats a key with the same method, path, query and payload, the original response is replayed. If the request differs, a 422 error is returned. | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
  **folder_items_parent_relationship_update_operation_payload** | [**FolderItemsParentRelationshipUpdateOperationPayload**](FolderItemsParentRelationshipUpdateOperationPayload.md)|  | [optional] 
 
 ### Return type
@@ -649,7 +669,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **folder_items_id_relationships_sharing_summary_get**
-> FolderItemsSharingSummarySingleRelationshipDataDocument folder_items_id_relationships_sharing_summary_get(id, include=include, replace_media=replace_media)
+> FolderItemsSharingSummarySingleRelationshipDataDocument folder_items_id_relationships_sharing_summary_get(id, include=include, replace_media=replace_media, share_code=share_code)
 
 Get sharingSummary relationship (\"to-one\").
 
@@ -685,10 +705,11 @@ with tidal.ApiClient(configuration) as api_client:
     id = 'e3226624-355b-48f8-aa93-db42532caa66' # str | Folder item id
     include = ['sharingSummary.subject'] # List[str] | Include related resources. Available relationships: sharingSummary (optional)
     replace_media = 'sharingSummary.subject' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: sharingSummary.subject (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
 
     try:
         # Get sharingSummary relationship (\"to-one\").
-        api_response = api_instance.folder_items_id_relationships_sharing_summary_get(id, include=include, replace_media=replace_media)
+        api_response = api_instance.folder_items_id_relationships_sharing_summary_get(id, include=include, replace_media=replace_media, share_code=share_code)
         print("The response of FolderItemsApi->folder_items_id_relationships_sharing_summary_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -705,6 +726,7 @@ Name | Type | Description  | Notes
  **id** | **str**| Folder item id | 
  **include** | [**List[str]**](str.md)| Include related resources. Available relationships: sharingSummary | [optional] 
  **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: sharingSummary.subject | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
 
 ### Return type
 
@@ -736,7 +758,7 @@ Name | Type | Description  | Notes
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **folder_items_id_relationships_subject_get**
-> FolderItemsSubjectSingleRelationshipDataDocument folder_items_id_relationships_subject_get(id, include=include, replace_media=replace_media)
+> FolderItemsSubjectSingleRelationshipDataDocument folder_items_id_relationships_subject_get(id, include=include, replace_media=replace_media, share_code=share_code)
 
 Get subject relationship (\"to-one\").
 
@@ -745,6 +767,7 @@ Retrieves subject relationship.
 ### Example
 
 * OAuth Authentication (Authorization_Code_PKCE):
+* OAuth Authentication (Client_Credentials):
 
 ```python
 import tidal
@@ -765,6 +788,8 @@ configuration = tidal.Configuration(
 
 configuration.access_token = os.environ["ACCESS_TOKEN"]
 
+configuration.access_token = os.environ["ACCESS_TOKEN"]
+
 # Enter a context with an instance of the API client
 with tidal.ApiClient(configuration) as api_client:
     # Create an instance of the API class
@@ -772,10 +797,11 @@ with tidal.ApiClient(configuration) as api_client:
     id = 'e3226624-355b-48f8-aa93-db42532caa66' # str | Folder item id
     include = ['subject'] # List[str] | Include related resources. Available relationships: subject (optional)
     replace_media = 'subject' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: subject (optional)
+    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
 
     try:
         # Get subject relationship (\"to-one\").
-        api_response = api_instance.folder_items_id_relationships_subject_get(id, include=include, replace_media=replace_media)
+        api_response = api_instance.folder_items_id_relationships_subject_get(id, include=include, replace_media=replace_media, share_code=share_code)
         print("The response of FolderItemsApi->folder_items_id_relationships_subject_get:\n")
         pprint(api_response)
     except Exception as e:
@@ -792,6 +818,7 @@ Name | Type | Description  | Notes
  **id** | **str**| Folder item id | 
  **include** | [**List[str]**](str.md)| Include related resources. Available relationships: subject | [optional] 
  **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: subject | [optional] 
+ **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
 
 ### Return type
 
@@ -799,7 +826,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE)
+[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE), [Client_Credentials](../README.md#Client_Credentials)
 
 ### HTTP request headers
 

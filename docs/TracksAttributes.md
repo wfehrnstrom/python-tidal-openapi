@@ -15,8 +15,8 @@ Name | Type | Description | Notes
 **explicit** | **bool** | Explicit content | 
 **external_links** | [**List[ExternalLink]**](ExternalLink.md) | Track links external to TIDAL API | [optional] 
 **isrc** | **str** | International Standard Recording Code (ISRC) | 
-**key** | **str** | Key | 
-**key_scale** | **str** | The scale of the key | 
+**key** | **str** | Key | [optional] 
+**key_scale** | **str** | The scale of the key | [optional] 
 **media_tags** | **List[str]** |  | 
 **popularity** | **float** | Popularity (0.0 - 1.0) | 
 **spotlighted** | **bool** | Is the track spotlighted? | [optional] 

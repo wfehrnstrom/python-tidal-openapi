@@ -9,7 +9,6 @@ Name | Type | Description | Notes
 **owners** | [**FoldersOwnersMultiRelationshipDataDocument**](FoldersOwnersMultiRelationshipDataDocument.md) |  | [optional] 
 **parent** | [**FoldersParentSingleRelationshipDataDocument**](FoldersParentSingleRelationshipDataDocument.md) |  | [optional] 
 **preview** | [**FoldersPreviewMultiRelationshipDataDocument**](FoldersPreviewMultiRelationshipDataDocument.md) |  | [optional] 
-**shares** | [**FoldersSharesMultiRelationshipDataDocument**](FoldersSharesMultiRelationshipDataDocument.md) |  | [optional] 
 
 ## Example
 

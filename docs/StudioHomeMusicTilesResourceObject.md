@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **attributes** | [**StudioHomeMusicTilesAttributes**](StudioHomeMusicTilesAttributes.md) |  | [optional] 
 **id** | **str** | Resource id | 
+**relationships** | [**StudioHomeMusicTilesRelationships**](StudioHomeMusicTilesRelationships.md) |  | [optional] 
 **type** | **str** | Resource type | 
 
 ## Example

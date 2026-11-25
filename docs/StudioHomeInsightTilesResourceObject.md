@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **attributes** | [**StudioHomeInsightTilesAttributes**](StudioHomeInsightTilesAttributes.md) |  | [optional] 
 **id** | **str** | Resource id | 
+**relationships** | [**StudioHomeInsightTilesRelationships**](StudioHomeInsightTilesRelationships.md) |  | [optional] 
 **type** | **str** | Resource type | 
 
 ## Example

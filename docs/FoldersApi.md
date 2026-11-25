@@ -12,7 +12,6 @@ Method | HTTP request | Description
 [**folders_id_relationships_owners_get**](FoldersApi.md#folders_id_relationships_owners_get) | **GET** /folders/{id}/relationships/owners | Get owners relationship (\&quot;to-many\&quot;).
 [**folders_id_relationships_parent_get**](FoldersApi.md#folders_id_relationships_parent_get) | **GET** /folders/{id}/relationships/parent | Get parent relationship (\&quot;to-one\&quot;).
 [**folders_id_relationships_preview_get**](FoldersApi.md#folders_id_relationships_preview_get) | **GET** /folders/{id}/relationships/preview | Get preview relationship (\&quot;to-many\&quot;).
-[**folders_id_relationships_shares_get**](FoldersApi.md#folders_id_relationships_shares_get) | **GET** /folders/{id}/relationships/shares | Get shares relationship (\&quot;to-many\&quot;).
 [**folders_post**](FoldersApi.md#folders_post) | **POST** /folders | Create single folder.
 
 
@@ -54,7 +53,7 @@ with tidal.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = tidal.FoldersApi(api_client)
     filter_id = ['filter_id_example'] # List[str] | Folder id (e.g. `e3226624-355b-48f8-aa93-db42532caa66`). Also accepts `me`.
-    include = ['children.subject'] # List[str] | Include related resources. Available relationships: children, owners, parent, preview, shares (optional)
+    include = ['children.subject'] # List[str] | Include related resources. Available relationships: children, owners, parent, preview (optional)
     include_linkage = ['include_linkage_example'] # List[str] | Comma-separated direct relationships to return as linkage only, without related content. (optional)
     replace_media = 'children.subject' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: children.subject (optional)
     share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
@@ -76,7 +75,7 @@ with tidal.ApiClient(configuration) as api_client:
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **filter_id** | [**List[str]**](str.md)| Folder id (e.g. &#x60;e3226624-355b-48f8-aa93-db42532caa66&#x60;). Also accepts &#x60;me&#x60;. | 
- **include** | [**List[str]**](str.md)| Include related resources. Available relationships: children, owners, parent, preview, shares | [optional] 
+ **include** | [**List[str]**](str.md)| Include related resources. Available relationships: children, owners, parent, preview | [optional] 
  **include_linkage** | [**List[str]**](str.md)| Comma-separated direct relationships to return as linkage only, without related content. | [optional] 
  **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: children.subject | [optional] 
  **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
@@ -237,7 +236,7 @@ with tidal.ApiClient(configuration) as api_client:
     # Create an instance of the API class
     api_instance = tidal.FoldersApi(api_client)
     id = 'me' # str | Folder id. Use `me` for the authenticated user's resource
-    include = ['children.subject'] # List[str] | Include related resources. Available relationships: children, owners, parent, preview, shares (optional)
+    include = ['children.subject'] # List[str] | Include related resources. Available relationships: children, owners, parent, preview (optional)
     include_linkage = ['include_linkage_example'] # List[str] | Comma-separated direct relationships to return as linkage only, without related content. (optional)
     replace_media = 'children.subject' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: children.subject (optional)
     share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
@@ -259,7 +258,7 @@ with tidal.ApiClient(configuration) as api_client:
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **id** | **str**| Folder id. Use &#x60;me&#x60; for the authenticated user&#39;s resource | 
- **include** | [**List[str]**](str.md)| Include related resources. Available relationships: children, owners, parent, preview, shares | [optional] 
+ **include** | [**List[str]**](str.md)| Include related resources. Available relationships: children, owners, parent, preview | [optional] 
  **include_linkage** | [**List[str]**](str.md)| Comma-separated direct relationships to return as linkage only, without related content. | [optional] 
  **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: children.subject | [optional] 
  **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
@@ -667,6 +666,7 @@ The first four items of this folder, as `children` lists them.
 ### Example
 
 * OAuth Authentication (Authorization_Code_PKCE):
+* OAuth Authentication (Client_Credentials):
 
 ```python
 import tidal
@@ -684,6 +684,8 @@ configuration = tidal.Configuration(
 # in accordance with the API server security policy.
 # Examples for each auth method are provided below, use the example that
 # satisfies your auth use case.
+
+configuration.access_token = os.environ["ACCESS_TOKEN"]
 
 configuration.access_token = os.environ["ACCESS_TOKEN"]
 
@@ -725,98 +727,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE)
-
-### HTTP request headers
-
- - **Content-Type**: Not defined
- - **Accept**: application/vnd.api+json
-
-### HTTP response details
-
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-**200** | Successful response |  -  |
-**400** | Invalid request |  -  |
-**404** | Resource not found |  -  |
-**405** | HTTP method not allowed |  -  |
-**406** | No acceptable response media type |  -  |
-**415** | Unsupported request media type or encoding |  -  |
-**429** | Rate limit exceeded |  -  |
-**500** | Internal server error |  -  |
-**503** | Service temporarily unavailable |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
-
-# **folders_id_relationships_shares_get**
-> FoldersSharesMultiRelationshipDataDocument folders_id_relationships_shares_get(id, include=include, page_cursor=page_cursor, replace_media=replace_media, share_code=share_code)
-
-Get shares relationship (\"to-many\").
-
-The folder's share links, active and expired, newest first.
-
-### Example
-
-* OAuth Authentication (Authorization_Code_PKCE):
-
-```python
-import tidal
-from tidal.models.folders_shares_multi_relationship_data_document import FoldersSharesMultiRelationshipDataDocument
-from tidal.rest import ApiException
-from pprint import pprint
-
-# Defining the host is optional and defaults to https://openapi.tidal.com/v2
-# See configuration.py for a list of all supported configuration parameters.
-configuration = tidal.Configuration(
-    host = "https://openapi.tidal.com/v2"
-)
-
-# The client must configure the authentication and authorization parameters
-# in accordance with the API server security policy.
-# Examples for each auth method are provided below, use the example that
-# satisfies your auth use case.
-
-configuration.access_token = os.environ["ACCESS_TOKEN"]
-
-# Enter a context with an instance of the API client
-with tidal.ApiClient(configuration) as api_client:
-    # Create an instance of the API class
-    api_instance = tidal.FoldersApi(api_client)
-    id = 'me' # str | Folder id. Use `me` for the authenticated user's resource
-    include = ['shares.sharedResources'] # List[str] | Include related resources. Available relationships: shares (optional)
-    page_cursor = 'page_cursor_example' # str | Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified (optional)
-    replace_media = 'shares.sharedResources' # str | Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow `include` syntax. Example: shares.sharedResources (optional)
-    share_code = 'xyz' # str | Share code used as a bearer credential for the resource. (optional)
-
-    try:
-        # Get shares relationship (\"to-many\").
-        api_response = api_instance.folders_id_relationships_shares_get(id, include=include, page_cursor=page_cursor, replace_media=replace_media, share_code=share_code)
-        print("The response of FoldersApi->folders_id_relationships_shares_get:\n")
-        pprint(api_response)
-    except Exception as e:
-        print("Exception when calling FoldersApi->folders_id_relationships_shares_get: %s\n" % e)
-```
-
-
-
-### Parameters
-
-
-Name | Type | Description  | Notes
-------------- | ------------- | ------------- | -------------
- **id** | **str**| Folder id. Use &#x60;me&#x60; for the authenticated user&#39;s resource | 
- **include** | [**List[str]**](str.md)| Include related resources. Available relationships: shares | [optional] 
- **page_cursor** | **str**| Server-generated cursor value pointing a certain page of items. Optional, targets first page if not specified | [optional] 
- **replace_media** | **str**| Applies context-dependent replacements to media resource identifiers in selected relationships without changing stored data. Paths are comma-separated and follow &#x60;include&#x60; syntax. Example: shares.sharedResources | [optional] 
- **share_code** | **str**| Share code used as a bearer credential for the resource. | [optional] 
-
-### Return type
-
-[**FoldersSharesMultiRelationshipDataDocument**](FoldersSharesMultiRelationshipDataDocument.md)
-
-### Authorization
-
-[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE)
+[Authorization_Code_PKCE](../README.md#Authorization_Code_PKCE), [Client_Credentials](../README.md#Client_Credentials)
 
 ### HTTP request headers
 

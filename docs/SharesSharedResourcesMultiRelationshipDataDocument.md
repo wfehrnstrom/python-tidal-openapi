@@ -1,6 +1,6 @@
 # SharesSharedResourcesMultiRelationshipDataDocument
 
-Target resource types: `albums`, `folders`, `playlists`, `tracks`.
+Target resource types: `albums`, `playlists`, `tracks`.
 
 ## Properties
 
